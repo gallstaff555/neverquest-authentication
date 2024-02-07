@@ -4,8 +4,6 @@ from flask import Flask,jsonify,request
 import boto3,hmac,hashlib,base64,json
 
 client = boto3.client('cognito-idp')
-#client_id = '5k67sb7v1d0erb46fjv8qojrlo'
-#client_secret = 's03em16o477j85uqt7j1oq9pr0b1ul9t5a3ok234bkt8dm7enp5'
 client_secret_path = 'client_secret.json'
 
 with open(client_secret_path, 'r') as file:
@@ -44,6 +42,7 @@ def create_account():
         ],
     )
 
+    print(response)
     return jsonify(response)
    
 
@@ -59,6 +58,8 @@ def confirm_account():
         Username=username,
         ConfirmationCode=confirmation_code
     )
+    status_code = response['ResponseMetadata']['HTTPStatusCode']
+    print(status_code)
     return jsonify(response)
 
 app.run(host='0.0.0.0', port=8080)
