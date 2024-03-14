@@ -3,7 +3,7 @@
 from flask import Flask,jsonify,request
 import boto3,hmac,hashlib,base64,json
 
-client = boto3.client('cognito-idp')
+client = boto3.client('cognito-idp', region_name='us-west-2')
 client_secret_path = 'client_secret.json'
 
 with open(client_secret_path, 'r') as file:
