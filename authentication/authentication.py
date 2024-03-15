@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 from flask import Flask,jsonify,request
-import boto3,hmac,hashlib,base64,json
+from token_verifier import TokenVerifier
+import boto3,hmac,hashlib,base64,json,jwt
 
 client = boto3.client('cognito-idp', region_name='us-west-2')
 client_secret_path = 'client_secret.json'
@@ -11,6 +12,7 @@ with open(client_secret_path, 'r') as file:
 
 client_id = data.get('client_id')
 client_secret = data.get('client_secret')
+user_pool_id = data.get('user_pool_id')
 
 print(client_id)
 print(client_secret)
@@ -29,6 +31,7 @@ def create_account():
     password = data.get('password')
     email = data.get('email')
     secretHash = calculateSecretHash(client_id, client_secret, username)
+    
     response = client.sign_up(
         ClientId=client_id,
         SecretHash=secretHash,
@@ -52,14 +55,47 @@ def confirm_account():
     username = data.get('username')
     confirmation_code = data.get('confirmation_code')
     secretHash = calculateSecretHash(client_id, client_secret, username)
+    
     response = client.confirm_sign_up(
         ClientId=client_id,
         SecretHash=secretHash,
         Username=username,
         ConfirmationCode=confirmation_code
     )
+    
     status_code = response['ResponseMetadata']['HTTPStatusCode']
     print(status_code)
     return jsonify(response)
+
+@app.route('/request_token', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    secretHash = calculateSecretHash(client_id, client_secret, username)
+    
+    response = client.admin_initiate_auth(
+        UserPoolId=user_pool_id,  
+        ClientId=client_id,  
+        
+        AuthFlow='ADMIN_USER_PASSWORD_AUTH',  # This auth flow allows you to directly submit user credentials
+        AuthParameters={
+            'USERNAME': username,
+            'PASSWORD': password, 
+            'SECRET_HASH': secretHash
+    })
+    
+    auth_result = response['AuthenticationResult']
+
+    return jsonify(auth_result)
+
+@app.route('/login', methods=['POST'])
+def decode():
+    data = request.get_json()
+    id_token = data.get('IdToken')
+    verifier = TokenVerifier(id_token)
+    #print(f'original id token: {id_token}\n')
+    result = verifier.verify_cognito_token()
+    return result
 
 app.run(host='0.0.0.0', port=8080)
