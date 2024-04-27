@@ -3,6 +3,7 @@
 from flask import Flask,jsonify,request
 from token_verifier import TokenVerifier
 import boto3,hmac,hashlib,base64,json,jwt
+from botocore.exceptions import ClientError
 
 client = boto3.client('cognito-idp', region_name='us-west-2')
 client_secret_path = 'client_secret.json'
@@ -69,25 +70,33 @@ def confirm_account():
 
 @app.route('/request_token', methods=['POST'])
 def login():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    secretHash = calculateSecretHash(client_id, client_secret, username)
-    
-    response = client.admin_initiate_auth(
-        UserPoolId=user_pool_id,  
-        ClientId=client_id,  
+    try: 
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        secretHash = calculateSecretHash(client_id, client_secret, username)
         
-        AuthFlow='ADMIN_USER_PASSWORD_AUTH',  # This auth flow allows you to directly submit user credentials
-        AuthParameters={
-            'USERNAME': username,
-            'PASSWORD': password, 
-            'SECRET_HASH': secretHash
-    })
-    
-    auth_result = response['AuthenticationResult']
-
-    return jsonify(auth_result)
+        cognito_response = client.admin_initiate_auth(
+            UserPoolId=user_pool_id,  
+            ClientId=client_id,  
+            
+            # This auth flow allows you to directly submit user credentials
+            AuthFlow='ADMIN_USER_PASSWORD_AUTH',  
+            AuthParameters={
+                'USERNAME': username,
+                'PASSWORD': password, 
+                'SECRET_HASH': secretHash
+        })
+        
+        auth_result = cognito_response['AuthenticationResult']
+        return jsonify(auth_result), 200
+    except ClientError as e:
+        # handle specific AWS Cognito errors
+        error_message = e.response['Error']['Message']
+        return jsonify({'Cognito error': error_message}), 500
+    except Exception as e:
+        # Handle other errors
+        return jsonify({'Error': str(e)}), 500
 
 @app.route('/login', methods=['POST'])
 def decode():
