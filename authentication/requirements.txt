@@ -3,3 +3,4 @@ jsonify
 boto3
 pyjwt[crypto]
 requests
+SQLAlchemy

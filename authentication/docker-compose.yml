@@ -1,0 +1,11 @@
+services:
+  neverquest-authentication:
+    image: neverquest-authentication
+    ports:
+      - "8080:8080"
+    container_name: authentication
+    volumes:
+      - ./db/authentication.db:/home/admin/authentication.db
+      - ./client_secret.json:/home/admin/client_secret.json
+      - ~/.aws/credentials:/home/admin/.aws/credentials
+      - ~/.aws/config:/home/admin/.aws/config
