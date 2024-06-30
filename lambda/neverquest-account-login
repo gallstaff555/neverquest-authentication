@@ -1,0 +1,32 @@
+import json, requests, jwt
+from jwt.algorithms import RSAAlgorithm
+
+def lambda_handler(event, context):
+    
+    body = json.loads(event.get('body', '{}'))
+    id_token = body.get('IdToken')
+    result = verifier.verify_cognito_token(id_token)
+    return result
+
+def verify_cognito_token(id_token):
+
+    client_secret = os.environ.get('client_secret')
+    # need to get public_key_url and client_id and store them in env var
+    jwks_url = data.get('public_key_url')
+    clientID = data.get('client_id')
+
+    # Decode the header to find the kid and algorithm without verification
+    headers = jwt.get_unverified_header(id_token)
+    
+    # Get the public key
+    public_key = get_public_key(jwks_url, headers['kid'])
+    
+    # Decode and verify the token
+    return jwt.decode(id_token, public_key, algorithms=["RS256"], audience=clientID, options={"verify_exp": False})
+
+def get_public_key(jwks_url, kid):
+    """Retrieve the public key from JWKS for a given kid."""
+    jwks = requests.get(jwks_url).json()
+    key = next((item for item in jwks["keys"] if item["kid"] == kid), None)
+    if key:
+        return RSAAlgorithm.from_jwk(json.dumps(key))

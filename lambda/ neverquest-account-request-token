@@ -1,0 +1,48 @@
+import json, boto3, hmac, hashlib, base64, os
+from botocore.exceptions import ClientError
+
+def lambda_handler(event, context):
+    
+    client = boto3.client('cognito-idp', region_name='us-west-2')
+    client_id = os.environ.get('client_id')
+    client_secret = os.environ.get('client_secret')
+    user_pool_id=os.environ.get('user_pool_id')
+    
+    body = json.loads(event.get('body', '{}'))
+    username = body.get('username')
+    password = body.get('password')
+    secretHash = calculateSecretHash(client_id, client_secret, username)
+    
+    try: 
+        cognito_response = client.admin_initiate_auth(
+            UserPoolId=user_pool_id,  
+            ClientId=client_id,  
+            
+            # This auth flow allows you to directly submit user credentials
+            AuthFlow='ADMIN_USER_PASSWORD_AUTH',  
+            AuthParameters={
+                'USERNAME': username,
+                'PASSWORD': password, 
+                'SECRET_HASH': secretHash
+        })
+
+        
+        auth_result = cognito_response['AuthenticationResult']
+        #return json.dumps(auth_result), 200
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps(auth_result)
+        }
+    except ClientError as e:
+        # handle specific AWS Cognito errors
+        error_message = e.response['Error']['Message']
+        return json.dumps({'Cognito error': error_message}), 500
+    except Exception as e:
+        # Handle other errors
+        return json.dumps({'Error': str(e)}), 500
+    
+def calculateSecretHash(client_id, client_secret, username):
+    key = bytes(client_secret, 'utf-8')
+    message = bytes(f'{username}{client_id}', 'utf-8')
+    return base64.b64encode(hmac.new(key, message, digestmod=hashlib.sha256).digest()).decode()
